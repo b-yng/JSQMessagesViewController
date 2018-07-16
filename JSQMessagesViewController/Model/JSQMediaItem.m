@@ -24,6 +24,7 @@
 
 @interface JSQMediaItem ()
 
+@property (nonatomic) CGSize displaySize;
 @property (strong, nonatomic) UIView *cachedPlaceholderView;
 
 @end
@@ -44,6 +45,7 @@
     if (self) {
         _appliesMediaViewMaskAsOutgoing = maskAsOutgoing;
         _cachedPlaceholderView = nil;
+        _displaySize = CGSizeZero;
         [[NSNotificationCenter defaultCenter] addObserver:self
                                                  selector:@selector(didReceiveMemoryWarningNotification:)
                                                      name:UIApplicationDidReceiveMemoryWarningNotification
@@ -83,8 +85,16 @@
     return nil;
 }
 
+- (void)setMediaViewDisplaySize:(CGSize)size {
+    _displaySize = size;
+}
+
 - (CGSize)mediaViewDisplaySize
 {
+    if (!CGSizeEqualToSize(_displaySize, CGSizeZero)) {
+        return _displaySize;
+    }
+    
     if ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad) {
         return CGSizeMake(315.0f, 225.0f);
     }

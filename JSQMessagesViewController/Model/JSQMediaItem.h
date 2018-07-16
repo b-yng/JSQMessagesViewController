@@ -55,4 +55,6 @@
  */
 - (void)clearCachedMediaViews;
 
+- (void)setMediaViewDisplaySize:(CGSize)size;
+
 @end

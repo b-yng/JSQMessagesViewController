@@ -23,11 +23,9 @@
 
 
 @interface JSQLocationMediaItem ()
-
+@property (nonatomic) CLLocationCoordinate2D coordinate;
 @property (strong, nonatomic) UIImage *cachedMapSnapshotImage;
-
 @property (strong, nonatomic) UIImageView *cachedMapImageView;
-
 @end
 
 
@@ -35,11 +33,11 @@
 
 #pragma mark - Initialization
 
-- (instancetype)initWithLocation:(CLLocation *)location
+- (instancetype)initWithCoordinate:(CLLocationCoordinate2D)coordinate
 {
     self = [super init];
     if (self) {
-        [self setLocation:location withCompletionHandler:nil];
+        [self setCoordinate:coordinate withCompletionHandler:nil];
     }
     return self;
 }
@@ -52,11 +50,6 @@
 
 #pragma mark - Setters
 
-- (void)setLocation:(CLLocation *)location
-{
-    [self setLocation:location withCompletionHandler:nil];
-}
-
 - (void)setAppliesMediaViewMaskAsOutgoing:(BOOL)appliesMediaViewMaskAsOutgoing
 {
     [super setAppliesMediaViewMaskAsOutgoing:appliesMediaViewMaskAsOutgoing];
@@ -66,79 +59,68 @@
 
 #pragma mark - Map snapshot
 
-- (void)setLocation:(CLLocation *)location withCompletionHandler:(JSQLocationMediaItemCompletionBlock)completion
+- (void)setCoordinate:(CLLocationCoordinate2D)coordinate withCompletionHandler:(JSQLocationMediaItemCompletionBlock)completion
 {
-    [self setLocation:location region:MKCoordinateRegionMakeWithDistance(location.coordinate, 500.0, 500.0) withCompletionHandler:completion];
-}
-
-- (void)setLocation:(CLLocation *)location region:(MKCoordinateRegion)region withCompletionHandler:(JSQLocationMediaItemCompletionBlock)completion
-{
-    _location = [location copy];
+    _coordinate = coordinate;
     _cachedMapSnapshotImage = nil;
     _cachedMapImageView = nil;
     
-    if (_location == nil) {
-        return;
-    }
-    
-    [self createMapViewSnapshotForLocation:_location
-                          coordinateRegion:region
-                     withCompletionHandler:completion];
+    [self buildMapImageWithCoordinate:coordinate completion:^(UIImage *image) {
+        self.cachedMapSnapshotImage = image;
+        if (completion) completion();
+    }];
 }
 
-- (void)createMapViewSnapshotForLocation:(CLLocation *)location
-                        coordinateRegion:(MKCoordinateRegion)region
-                   withCompletionHandler:(JSQLocationMediaItemCompletionBlock)completion
-{
-    NSParameterAssert(location != nil);
+- (void)buildMapImageWithCoordinate:(CLLocationCoordinate2D)coordinate completion:(void (^)(UIImage *))completion {
     
-    MKMapSnapshotOptions *options = [[MKMapSnapshotOptions alloc] init];
-    options.region = region;
-    options.size = [self mediaViewDisplaySize];
-    options.scale = [UIScreen mainScreen].scale;
-    
-    MKMapSnapshotter *snapShotter = [[MKMapSnapshotter alloc] initWithOptions:options];
-    
-    [snapShotter startWithQueue:dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)
-              completionHandler:^(MKMapSnapshot *snapshot, NSError *error) {
-                  if (snapshot == nil) {
-                      NSLog(@"%s Error creating map snapshot: %@", __PRETTY_FUNCTION__, error);
-                      return;
-                  }
-                  
-                  MKAnnotationView *pin = [[MKPinAnnotationView alloc] initWithAnnotation:nil reuseIdentifier:nil];
-                  CGPoint coordinatePoint = [snapshot pointForCoordinate:location.coordinate];
-                  UIImage *image = snapshot.image;
-                  
-                  coordinatePoint.x += pin.centerOffset.x - (CGRectGetWidth(pin.bounds) / 2.0);
-                  coordinatePoint.y += pin.centerOffset.y - (CGRectGetHeight(pin.bounds) / 2.0);
-                  
-                  UIGraphicsBeginImageContextWithOptions(image.size, YES, image.scale);
-                  {
-                      [image drawAtPoint:CGPointZero];
-                      [pin.image drawAtPoint:coordinatePoint];
-                      self.cachedMapSnapshotImage = UIGraphicsGetImageFromCurrentImageContext();
-                  }
-                  UIGraphicsEndImageContext();
-                  
-                  if (completion) {
-                      dispatch_async(dispatch_get_main_queue(), completion);
-                  }
-              }];
 }
 
-#pragma mark - MKAnnotation
-
-- (CLLocationCoordinate2D)coordinate
-{
-    return self.location.coordinate;
-}
+//- (void)createMapViewSnapshotForLocation:(CLLocation *)location
+//                        coordinateRegion:(MKCoordinateRegion)region
+//                   withCompletionHandler:(JSQLocationMediaItemCompletionBlock)completion
+//{
+//    NSParameterAssert(location != nil);
+//
+//    MKMapSnapshotOptions *options = [[MKMapSnapshotOptions alloc] init];
+//    options.region = region;
+//    options.size = [self mediaViewDisplaySize];
+//    options.scale = [UIScreen mainScreen].scale;
+//
+//    MKMapSnapshotter *snapShotter = [[MKMapSnapshotter alloc] initWithOptions:options];
+//
+//    [snapShotter startWithQueue:dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)
+//              completionHandler:^(MKMapSnapshot *snapshot, NSError *error) {
+//                  if (snapshot == nil) {
+//                      NSLog(@"%s Error creating map snapshot: %@", __PRETTY_FUNCTION__, error);
+//                      return;
+//                  }
+//
+//                  MKAnnotationView *pin = [[MKPinAnnotationView alloc] initWithAnnotation:nil reuseIdentifier:nil];
+//                  CGPoint coordinatePoint = [snapshot pointForCoordinate:location.coordinate];
+//                  UIImage *image = snapshot.image;
+//
+//                  coordinatePoint.x += pin.centerOffset.x - (CGRectGetWidth(pin.bounds) / 2.0);
+//                  coordinatePoint.y += pin.centerOffset.y - (CGRectGetHeight(pin.bounds) / 2.0);
+//
+//                  UIGraphicsBeginImageContextWithOptions(image.size, YES, image.scale);
+//                  {
+//                      [image drawAtPoint:CGPointZero];
+//                      [pin.image drawAtPoint:coordinatePoint];
+//                      self.cachedMapSnapshotImage = UIGraphicsGetImageFromCurrentImageContext();
+//                  }
+//                  UIGraphicsEndImageContext();
+//
+//                  if (completion) {
+//                      dispatch_async(dispatch_get_main_queue(), completion);
+//                  }
+//              }];
+//}
 
 #pragma mark - JSQMessageMediaData protocol
 
 - (UIView *)mediaView
 {
-    if (self.location == nil || self.cachedMapSnapshotImage == nil) {
+    if (self.cachedMapSnapshotImage == nil) {
         return nil;
     }
     
@@ -168,19 +150,15 @@
     
     JSQLocationMediaItem *locationItem = (JSQLocationMediaItem *)object;
     
-    return [self.location isEqual:locationItem.location];
+    return self.coordinate.latitude == locationItem.coordinate.latitude &&
+    self.coordinate.longitude == locationItem.coordinate.longitude;
 }
 
 - (NSUInteger)hash
 {
-    return super.hash ^ self.location.hash;
+    return super.hash ^ @(self.coordinate.longitude).hash ^ @(self.coordinate.latitude).hash;
 }
 
-- (NSString *)description
-{
-    return [NSString stringWithFormat:@"<%@: location=%@, appliesMediaViewMaskAsOutgoing=%@>",
-            [self class], self.location, @(self.appliesMediaViewMaskAsOutgoing)];
-}
 
 #pragma mark - NSCoding
 
@@ -188,8 +166,10 @@
 {
     self = [super initWithCoder:aDecoder];
     if (self) {
-        CLLocation *location = [aDecoder decodeObjectForKey:NSStringFromSelector(@selector(location))];
-        [self setLocation:location withCompletionHandler:nil];
+        CLLocationDegrees longitude = [aDecoder decodeDoubleForKey:@"longitude"];
+        CLLocationDegrees latitude = [aDecoder decodeDoubleForKey:@"latitude"];
+        CLLocationCoordinate2D coordinate = CLLocationCoordinate2DMake(latitude, longitude);
+        [self setCoordinate:coordinate withCompletionHandler:nil];
     }
     return self;
 }
@@ -197,14 +177,15 @@
 - (void)encodeWithCoder:(NSCoder *)aCoder
 {
     [super encodeWithCoder:aCoder];
-    [aCoder encodeObject:self.location forKey:NSStringFromSelector(@selector(location))];
+    [aCoder encodeDouble:self.coordinate.latitude forKey:@"latitude"];
+    [aCoder encodeDouble:self.coordinate.longitude forKey:@"longitude"];
 }
 
 #pragma mark - NSCopying
 
 - (instancetype)copyWithZone:(NSZone *)zone
 {
-    JSQLocationMediaItem *copy = [[[self class] allocWithZone:zone] initWithLocation:self.location];
+    JSQLocationMediaItem *copy = [[[self class] allocWithZone:zone] initWithCoordinate:self.coordinate];
     copy.appliesMediaViewMaskAsOutgoing = self.appliesMediaViewMaskAsOutgoing;
     return copy;
 }
